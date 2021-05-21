@@ -1,52 +1,57 @@
-var particles=[];
-var particle_speed=0.001;
-var max_particles=2000;
-var particle_size=20;
-var speed_limit=100;
-var WIDTH=1280;
-var HEIGHT=720;
-var dampening_factor=0.4;
-var chaos=0.1;
-var line_thickness=15;
-var color_rating=0;
-var color_velocity=0.2;
-var color_rating_alt=0;
-var particles_paused=false;
+const particles=[];
+const particle_speed=0.001;
+const max_particles=1000;
+const particle_size=20;
+const speed_limit=100;
+const WIDTH=1920;
+const HEIGHT=1080;
+const dampening_factor=0.4;
+const chaos=0.1;
+const line_thickness=20;
+
+const color_velocity=0.2;
+const color_rating_alt=0;
+const particles_paused=false;
+//Force correction to slowdown on axis for target
+const force_correction_to_target = 0.95;
+
+let tick = 0
+
+
+
 function setup() {
-	color_rating=int(105)
-	color_rating_alt=int(192)
 	createCanvas(WIDTH, HEIGHT);
 	background(200,200,200);
 	frameRate(60);
 	strokeWeight(line_thickness);
 	gen_particles(max_particles);
-	var target='./img/net.bmp';
+	
 	load_target('./img/rizza.bmp');
-	
-	setInterval(function(){
-		if(target=='./img/rizza.bmp'){
-			load_target('./img/rizza.bmp');
-			target='./img/net.bmp';
-		}
-		else{
-			load_target('./img/net.bmp');
-			target='./img/rizza.bmp';
-		}
-
-	},30000);
-	
 }
 
 function draw() {
 	clear();
 	if(!particles_paused){
+		tick++
+
 		for(i=0;i<particles.length;i++){
 			particles[i].draw();
 			particles[i].update();
 			particles[i].update_velocity();
 		}
+
+		if(tick % 5 === 0){
+			//console.log(mouseX, mouseY)
+			let targets = get_targets_in_radius(mouseX,mouseY,200)
+
+			for(i=0;i<targets.length;i++){
+				targets[i].xv -= (mouseX - targets[i].x) * 0.01
+				targets[i].yv -= (mouseY - targets[i].y) * 0.01
+			}
+		}
 	}
 }
+
 /* EXPLODE AND IMPLODE */
 function get_targets_in_radius(x,y,rad){
 	rad=rad||200;
@@ -58,9 +63,11 @@ function get_targets_in_radius(x,y,rad){
 	}
 	return open_set;
 }
+
 function pythag_dist(x1,x2,y1,y2){
 	return Math.sqrt(Math.pow(x1-x2,2)+Math.pow(y1-y2,2))
 }
+
 function explode(x,y,rad,power){
 	open_set=get_targets_in_radius(x,y,rad);
 	for(i=0;i<open_set.length;i++){
@@ -69,6 +76,7 @@ function explode(x,y,rad,power){
 		open_set[i].yv=(open_set[i].y-y)*power*(1/dist_part);
 	}
 }
+
 function mousePressed(){
 	if (mouseButton===LEFT){
 		explode(mouseX,mouseY,300,100)
@@ -77,12 +85,14 @@ function mousePressed(){
 		explode(mouseX,mouseY,300,-100)
 	}
 }
+
 /* EXPLODE AND IMPLODE END*/
 function gen_particles(){
 	for(i=0;i<max_particles;i++){
 		particles.push(new particle(random(width),random(height),0,0));
 	}
 }
+
 function convert_cords(x,y,x_total,y_total){
 	return [round((x/x_total)*width),round((y/y_total)*height)];
 }
@@ -117,7 +127,7 @@ function load_target(target_img_url){
 		delete data;
 		
 		for(i=0;i<particles.length;i++){
-			selected=valid_points[round(random(valid_points.length-1))];
+			selected=valid_points[round((valid_points.length/particles.length) * i)];
 			particles[i].t_x=selected[0];
 			particles[i].t_y=selected[1];
 			//Force strait line travel
@@ -128,16 +138,20 @@ function load_target(target_img_url){
 	}
 }
 function particle(x,y,xv,yv){
-	this.x=x||0;
-	this.y=y||0;
-	this.xv=xv||0;
-	this.yv=yv||0;
-	this.t_x=0;
-	this.t_y=0;
-	this.speed=1;
-	this.chaos=0;
+	this.x=x||0
+	this.y=y||0
+	this.xv=xv||0
+	this.yv=yv||0
+	this.t_x=0
+	this.t_y=0
+	this.speed=1
+	this.chaos=0
 	this.draw=function(){
-	stroke(particle_size);
+		//stroke(particle_size);
+		//rectMode(CENTER);
+		//rect(this.x,this.y, 10, 10);
+		//circle(this.x,this.y, 20);
+		//box(10);
 		line(this.x,this.y,this.x+(this.xv*this.speed),this.y+(this.yv*this.speed))
 	}
 	this.update=function(){
@@ -190,16 +204,28 @@ function particle(x,y,xv,yv){
 			}
 		}
 		if(this.speed!=0){
-			this.speed=(Math.sqrt(Math.pow(abs(this.x-t_x),2)+Math.pow(abs(this.y-t_y),2)))/(width*1.5);
+			//this.speed=(Math.sqrt(Math.pow(abs(this.x-t_x),2)+Math.pow(abs(this.y-t_y),2)))/(width*1.5);
 			if(this.speed<0.1){
 				this.speed=0.1;
 			}
-			if(abs(this.x-t_x)<3){
-				this.xv=0
+
+			//Apply slowing force when on correct axis
+			let dx = abs(this.x-t_x)
+			let dy = abs(this.x-t_x)
+			/*if(dx < 10){
+				this.xv *= force_correction_to_target
+
 			}
-			if(abs(this.y-t_y)<3){
-					this.yv=0
+			if(dy < 10){
+				this.yv *= force_correction_to_target
+			}*/
+
+			if(dx < 100 && dy < 100){
+				this.yv = min(this.yv * force_correction_to_target, 10)
+				this.xv = min(this.xv * force_correction_to_target, 10)
 			}
+
+			
 		}
 	}
 	this.update_velocity=function(){
